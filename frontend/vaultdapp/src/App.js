@@ -14,6 +14,7 @@ function App() {
   const [account, setAccount] = useState("");
   const [balance, setBalance] = useState("0");
 
+  
   useEffect(() => {
     const init = async () => {
       if (window.ethereum) {
@@ -31,7 +32,9 @@ function App() {
         const fetchBalance = async () => {
           const bal = await _contract.getBalance(_address);
           setBalance(ethers.formatEther(bal));
+          return bal;
         };
+        
 
          await fetchBalance(); // initial fetch
 
@@ -56,10 +59,25 @@ function App() {
   };
 
   const withdraw = async () => {
-    const tx = await contract.withdraw(ethers.parseEther("0.05"));
-    await tx.wait();
+    try {
+      const bal = await contract.getBalance(account);
+      console.log("Current balance:", ethers.formatEther(bal).toString());
+      if (bal >= ethers.parseEther("0.05")) {
+        const tx = await contract.withdraw(ethers.parseEther("0.05"));
+        await tx.wait();
     
-    alert("Withdrew 0.05 ETH!");
+        alert("Withdrew 0.05 ETH!");
+        return;
+      }
+      else {
+        alert("Insufficient balance to withdraw 0.05 ETH");
+      }
+    }
+    catch (error) {
+      console.log("Error withdrawing:", error);
+      alert("Error withdrawing: " + error.message);
+    }
+    
   };
 
   return (
@@ -71,12 +89,10 @@ function App() {
       <button onClick={deposit}>Deposit 0.1 ETH</button>
       <button onClick={withdraw}>Withdraw 0.05 ETH</button>
 
-
     </div>
   );
 }
 
 export default App;
 
-// How to run the app:
-// 1. Make sure you have Node.js and npm installed.
+
