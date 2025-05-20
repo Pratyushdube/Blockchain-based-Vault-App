@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import "./App.css";
 
-const API_BASE = "http://localhost:3001"; // Your Express server
+const API_BASE = "http://localhost:3001"; 
 
 function App() {
   const [account, setAccount] = useState("");
   const [balance, setBalance] = useState("0");
+  const [loading, setLoading] = useState({ deposit: false, withdraw: false });
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const init = async () => {
@@ -39,7 +42,7 @@ function App() {
     };
     init();
   }, []);
-
+  
   // Fetch balance for the backend wallet address
   // This is the address that will be used to sign the transactions
 
@@ -48,44 +51,82 @@ function App() {
       const res = await axios.get(`${API_BASE}/balance/${address}`);
       setBalance(res.data.balance);
     } catch (err) {
-      console.error("Failed to fetch balance:", err);
+      setError("Failed to fetch balance");
+      console.error(err);
     }
   };
 
-
-
-
   const deposit = async () => {
+    setLoading({ ...loading, deposit: true });
+    setError(null);
     try {
       const res = await axios.post(`${API_BASE}/deposit`, {
         amountInEth: "0.1",
       });
       alert(`Deposit tx: ${res.data.txHash}`);
     } catch (err) {
-      alert("Deposit failed");
+      setError("Deposit failed");
       console.error(err);
+    } finally {
+      setLoading({ ...loading, deposit: false });
     }
   };
 
   const withdraw = async () => {
+    setLoading({ ...loading, withdraw: true });
+    setError(null);
     try {
       const res = await axios.post(`${API_BASE}/withdraw`, {
         amountInEth: "0.05",
       });
       alert(`Withdraw tx: ${res.data.txHash}`);
     } catch (err) {
-      alert("Withdraw failed");
+      setError("Withdraw failed");
       console.error(err);
+    } finally {
+      setLoading({ ...loading, withdraw: false });
     }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Vault DApp (with backend)</h1>
-      <p><strong>Wallet:</strong> {account}</p>
-      <p><strong>Vault Balance:</strong> {balance} ETH</p>
-      <button onClick={deposit}>Deposit 0.1 ETH</button>
-      <button onClick={withdraw}>Withdraw 0.05 ETH</button>
+    <div className="app-container">
+      <header className="app-header">
+        <h1>Vault DApp</h1>
+        {account && (
+          <div className="wallet-info">
+            <span>Connected Wallet:  </span>
+            <span className="wallet-address">
+              {account}
+              </span>
+          </div>
+        )}
+      </header>
+
+      <main className="app-main">
+        <div className="balance-card">
+          <h2>Vault Balance</h2>
+          <p className="balance-amount">{balance} ETH</p>
+        </div>
+
+        <div className="action-buttons">
+          <button 
+            onClick={deposit}
+            disabled={loading.deposit}
+            className={loading.deposit ? 'loading' : ''}
+          >
+            {loading.deposit ? 'Processing...' : 'Deposit 0.1 ETH'}
+          </button>
+          <button 
+            onClick={withdraw}
+            disabled={loading.withdraw}
+            className={loading.withdraw ? 'loading' : ''}
+          >
+            {loading.withdraw ? 'Processing...' : 'Withdraw 0.05 ETH'}
+          </button>
+        </div>
+
+        {error && <div className="error-message">{error}</div>}
+      </main>
     </div>
   );
 }
