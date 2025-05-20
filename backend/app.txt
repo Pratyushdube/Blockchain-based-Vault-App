@@ -1,0 +1,75 @@
+const express = require('express');
+const cors = require('cors');
+const app = express();
+const PORT = 5000;
+
+// Middleware with request logging
+app.use(cors({ origin: 'http://localhost:3000' }));
+app.use(express.json());
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// Storage
+// const balances = {};
+const balances = async () => {
+    const bal = contract.getBalance(account);
+    return bal;
+};
+
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  console.log('Health check received');
+  res.json({ status: 'OK', timestamp: new Date() });
+});
+
+// Balance endpoints with logging
+app.get('/api/balance/:address', (req, res) => {
+  const { address } = req.params;
+  console.log(`Balance request for: ${address}`);
+  res.json({ balance: balances[address] || "0" });
+});
+
+
+
+app.post('/api/deposit', (req, res) => {
+  const { address } = req.body;
+  console.log(`Deposit request from: ${address}`);
+  
+  if (!address) {
+    console.error('No address provided');
+    return res.status(400).json({ error: "Address required" });
+  }
+
+  balances[address] = (parseFloat(balances[address] || 0) + 0.1);
+  console.log(`New balance for ${address}: ${balances[address]}`);
+  res.json({ success: true });
+});
+
+app.post('/api/withdraw', (req, res) => {
+  const { address } = req.body;
+  console.log(`Withdraw request from: ${address}`);
+
+  const currentBalance = parseFloat(balances[address] || 0);
+  if (currentBalance < 0.05) {
+    console.error(`Insufficient balance for ${address}`);
+    return res.status(400).json({ error: "Insufficient balance" });
+  }
+
+  balances[address] = currentBalance - 0.05;
+  console.log(`Updated balance for ${address}: ${balances[address]}`);
+  res.json({ success: true });
+});
+
+// Start server with verbose logging
+app.listen(PORT, () => {
+  console.log(`\n=== Server started ===`);
+  console.log(`Listening on http://localhost:${PORT}`);
+  console.log(`Available endpoints:`);
+  console.log(`- GET  /api/health`);
+  console.log(`- GET  /api/balance/:address`);
+  console.log(`- POST /api/deposit`);
+  console.log(`- POST /api/withdraw\n`);
+});

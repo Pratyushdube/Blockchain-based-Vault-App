@@ -1,98 +1,93 @@
-import logo from './logo.svg';
-import './App.css';
-
 import { useEffect, useState } from "react";
-import { ethers } from "ethers";
-import vaultAbi from "./abi/Vault.json";
+import axios from "axios";
 
-const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; //  <== Replace this with deployed contract address
+const API_BASE = "http://localhost:3001"; // Your Express server
 
 function App() {
-  const [provider, setProvider] = useState(null);
-  const [signer, setSigner] = useState(null);
-  const [contract, setContract] = useState(null);
   const [account, setAccount] = useState("");
   const [balance, setBalance] = useState("0");
 
-  
   useEffect(() => {
     const init = async () => {
       if (window.ethereum) {
-        const _provider = new ethers.BrowserProvider(window.ethereum);
-        const _signer = await _provider.getSigner();
-        const _contract = new ethers.Contract(CONTRACT_ADDRESS, vaultAbi, _signer);
-        const _address = await _signer.getAddress();
+        try {
+          // We get Metamask Wallet address here, but we used it in frontend confirmation/signing, 
+          // but we don't need it in backend, we need the backend wallet address (as it is the one that will sign the transactions when using APIs)
+          
+          // Metamask Wallet address (Not used)
+          const [addr] = await window.ethereum.request({ method: "eth_requestAccounts" });
+          setAccount(addr);
+          console.log("Metamask Wallet address:", addr);
 
-        setProvider(_provider);
-        setSigner(_signer);
-        setContract(_contract);
-        setAccount(_address);
-        // Get balance is removed from here and moved to a separate function called fetchBalance
-        
-        const fetchBalance = async () => {
-          const bal = await _contract.getBalance(_address);
-          setBalance(ethers.formatEther(bal));
-          return bal;
-        };
-        
+          // Backend Wallet address
+          const res = await axios.get(`${API_BASE}/backend-address`);
+          const backendWalletAddress = res.data.address;
+          console.log("Backend Wallet address:", backendWalletAddress);
 
-         await fetchBalance(); // initial fetch
+          // Fetch balance for the backend wallet address
+          fetchBalance(backendWalletAddress);
 
-        // Set up polling every 5 seconds
-        const interval = setInterval(fetchBalance, 5000);
-
-        // Cleanup on component unmount
-        return () => clearInterval(interval);
-
+          // Set interval to fetch balance every 5 seconds
+          const interval = setInterval(() => fetchBalance(backendWalletAddress), 5000); // 5000 -> 5 seconds
+          return () => clearInterval(interval);
+        } catch (err) {
+          console.error("Failed to connect to Metamask OR Get the backend wallet address:", err);
+        }
       } else {
-        alert("Install MetaMask");
+        alert("Please install MetaMask!");
       }
     };
     init();
   }, []);
 
+  // Fetch balance for the backend wallet address
+  // This is the address that will be used to sign the transactions
+
+  const fetchBalance = async (address) => {
+    try {
+      const res = await axios.get(`${API_BASE}/balance/${address}`);
+      setBalance(res.data.balance);
+    } catch (err) {
+      console.error("Failed to fetch balance:", err);
+    }
+  };
+
+
+
 
   const deposit = async () => {
-    const tx = await contract.deposit({ value: ethers.parseEther("0.1") });
-    await tx.wait();
-    alert("Deposited 0.1 ETH!");
+    try {
+      const res = await axios.post(`${API_BASE}/deposit`, {
+        amountInEth: "0.1",
+      });
+      alert(`Deposit tx: ${res.data.txHash}`);
+    } catch (err) {
+      alert("Deposit failed");
+      console.error(err);
+    }
   };
 
   const withdraw = async () => {
     try {
-      const bal = await contract.getBalance(account);
-      console.log("Current balance:", ethers.formatEther(bal).toString());
-      if (bal >= ethers.parseEther("0.05")) {
-        const tx = await contract.withdraw(ethers.parseEther("0.05"));
-        await tx.wait();
-    
-        alert("Withdrew 0.05 ETH!");
-        return;
-      }
-      else {
-        alert("Insufficient balance to withdraw 0.05 ETH");
-      }
+      const res = await axios.post(`${API_BASE}/withdraw`, {
+        amountInEth: "0.05",
+      });
+      alert(`Withdraw tx: ${res.data.txHash}`);
+    } catch (err) {
+      alert("Withdraw failed");
+      console.error(err);
     }
-    catch (error) {
-      console.log("Error withdrawing:", error);
-      alert("Error withdrawing: " + error.message);
-    }
-    
   };
 
   return (
     <div style={{ padding: 20 }}>
-      <img src={logo} className="App-logo" alt="logo" />
-      <h1>Vault DApp</h1>
-      <p><strong>Connected:</strong> {account}</p>
+      <h1>Vault DApp (with backend)</h1>
+      <p><strong>Wallet:</strong> {account}</p>
       <p><strong>Vault Balance:</strong> {balance} ETH</p>
       <button onClick={deposit}>Deposit 0.1 ETH</button>
       <button onClick={withdraw}>Withdraw 0.05 ETH</button>
-
     </div>
   );
 }
 
 export default App;
-
-
